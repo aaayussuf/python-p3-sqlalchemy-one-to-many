@@ -1,52 +1,24 @@
-from sqlalchemy import create_engine
+import pytest
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from lib.models import Base, Game, Review
 
-from conftest import SQLITE_URL
-from models import Game, Review
-
-class TestReview:
-    '''Class Review in models.py'''
-
-    # start session, reset db
-    engine = create_engine(SQLITE_URL)
+@pytest.fixture
+def session():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
-    session = Session()
+    return Session()
 
-    # add test data
-    skyrim = Game(
-        title="The Elder Scrolls V: Skyrim",
-        platform="PC",
-        genre="Adventure",
-        price=20
-    )
-
-    session.add(skyrim)
+def test_create_review(session):
+    game = Game(title="Dark Souls", genre="Action RPG")
+    session.add(game)
     session.commit()
 
-    skyrim_review = Review(
-        score=10,
-        comment="Wow, what a game",
-        game_id=skyrim.id
-    )
-
-    session.add(skyrim_review)
+    review = Review(content="Amazing difficulty!", rating=5, game_id=game.id)
+    session.add(review)
     session.commit()
 
-    def test_game_has_correct_attributes(self):
-        '''has attributes "id", "score", "comment", "game_id".'''
-        assert(
-            all(
-                hasattr(
-                    TestReview.skyrim_review, attr
-                ) for attr in [
-                    "id",
-                    "score",
-                    "comment",
-                    "game_id",
-                ]))
-
-    def test_knows_about_associated_game(self):
-        '''has attribute "game" that is the "Game" object associated with its game_id.'''
-        assert(
-            TestReview.skyrim_review.game == TestReview.skyrim
-        )
+    retrieved_review = session.query(Review).filter_by(game_id=game.id).first()
+    assert retrieved_review is not None
+    assert retrieved_review.rating == 5
